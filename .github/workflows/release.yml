@@ -38,7 +38,8 @@ jobs:
         shell: powershell
         run: |
           $hash = (Get-FileHash dist\Maroom-Setup.exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  Maroom-Setup.exe" | Out-File dist\Maroom-Setup.exe.sha256 -Encoding ascii
+          # LF line ending, so `sha256sum -c` also works on Linux and in Git Bash
+          [IO.File]::WriteAllText("$PWD\dist\Maroom-Setup.exe.sha256", "$hash  Maroom-Setup.exe`n")
           Get-Content dist\Maroom-Setup.exe.sha256
 
       - name: Create release
