@@ -2,7 +2,9 @@
 
 **Eigene Räume auf den virtuellen Desktops von Windows 11.**
 
-[English version](README.md) · [Lizenz: MIT](LICENSE)
+[English version](README.md) · [Lizenz: MIT](LICENSE) · [![Build](https://github.com/TiDo12345/maroom/actions/workflows/build.yml/badge.svg)](https://github.com/TiDo12345/maroom/actions/workflows/build.yml)
+
+![Zwei virtuelle Desktops mit jeweils eigenen Desktop-Symbolen und der Einblendung beim Wechsel](docs/hero.de.svg)
 
 Maroom gibt jedem virtuellen Desktop von Windows 11 **eigene Desktop-Symbole an eigenen Positionen**. Das können die eingebauten virtuellen Desktops nicht. Dazu kommt, was früher Werkzeuge wie Dexpot boten: Wechsel mit den Maus-Seitentasten, Tastenkürzel und das Verschieben von Fenstern über das Fenstermenü.
 
@@ -33,6 +35,8 @@ Maroom wird nur für den angemeldeten Benutzer nach `%LOCALAPPDATA%\Maroom` inst
 | Aktives Fenster verschieben | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf Desktop N** | **Alt+Shift+1 / Alt+Shift+2** | Tray-Menü |
 | Fenster auf allen Desktops anzeigen (an/aus) | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf allen Desktops anzeigen** | **Alt+Shift+0** | Tray-Menü |
 
+![Das Maroom-Untermenü im Fenstermenü der Titelleiste](docs/window-menu.de.svg)
+
 Das Tray-Symbol zeigt die Nummer des aktiven Desktops. Über sein Menü kannst du außerdem:
 - den Desktop-Ordner öffnen und die Symbolpositionen speichern,
 - das Protokoll anzeigen,
@@ -44,6 +48,8 @@ Das Tray-Symbol zeigt die Nummer des aktiven Desktops. Über sein Menü kannst d
 ## So funktionieren die eigenen Desktop-Symbole
 
 Windows hat nur einen Desktop-Ordner für alle virtuellen Desktops. Maroom tauscht deshalb beim Wechsel dessen Inhalt aus. Beide Ordner liegen auf demselben Laufwerk, das Tauschen ist also nur ein Umbenennen und sofort erledigt.
+
+![Beim Wechsel tauschen der Inhalt des Desktop-Ordners und der ruhende Ordner des anderen Desktops die Plätze](docs/how-it-works.de.svg)
 
 | Aktiv | Im Desktop-Ordner | Ruht in |
 | --- | --- | --- |
@@ -72,7 +78,18 @@ Voraussetzung ist Windows mit .NET Framework 4.x, das in Windows 10/11 enthalten
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-Das kompiliert `Maroom.exe` und `Maroom-Setup.exe` nach `dist\` und installiert das Ergebnis mit `Maroom-Setup.exe /quiet`. Das Symbol erzeugt `icon\IconGenerator.cs`; die fertige `icon\maroom.ico` liegt im Repo.
+Das kompiliert `Maroom.exe` und `Maroom-Setup.exe` nach `dist\` und installiert das Ergebnis mit `Maroom-Setup.exe /quiet`. Das Symbol erzeugt `icon\IconGenerator.cs`; die fertige `icon\maroom.ico` liegt im Repo. `build.ps1 -NoInstall` baut nur.
+
+GitHub Actions baut jeden Push und Pull Request, lässt CodeQL laufen und veröffentlicht beim Push eines Tags wie `v2.10` ein Release mit `Maroom-Setup.exe` und SHA-256-Prüfsumme. Der Tag muss zur Version in `Maroom.cs` passen.
+
+| Datei | Zweck |
+| --- | --- |
+| [Maroom.cs](Maroom.cs) | Die Tray-App |
+| [Setup.cs](Setup.cs) | Installer und Deinstaller (`/quiet`, `/uninstall`) |
+| [build.ps1](build.ps1) | Bauen und installieren |
+| [.github/workflows/](.github/workflows/) | CI-Build, CodeQL, Release |
+| [tests/SmokeTest.ps1](tests/SmokeTest.ps1) | End-to-End-Test der installierten Version |
+| [icon/](icon/) | Symbol und sein Generator |
 
 ## Testen
 
@@ -88,6 +105,15 @@ Der Test steuert etwa 3–4 Minuten lang den echten Desktop, in der Zeit also Ma
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tests\SmokeTest.ps1
 ```
+
+## Dateien
+
+| Was | Wo |
+| --- | --- |
+| Programm, Kopie des Deinstallers | `%LOCALAPPDATA%\Maroom\Maroom.exe`, `Maroom-Setup.exe` |
+| Zustand, wartende gesperrte Dateien, Symbolpositionen, Sicherungen | `state.txt`, `pending.txt`, `positions-N.txt`, `backup\` in `%LOCALAPPDATA%\Maroom` |
+| Einstellungen, Protokoll | `settings.txt`, `Maroom.log` in `%LOCALAPPDATA%\Maroom` |
+| Autostart, Deinstallationseintrag | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` und `...\Uninstall\Maroom` |
 
 ## Name
 

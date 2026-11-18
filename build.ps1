@@ -15,7 +15,9 @@
              %LOCALAPPDATA%\Maroom\Maroom-Setup.exe /uninstall
 
   Usage (from the repository folder):  powershell -ExecutionPolicy Bypass -File .\build.ps1
+  Build only, without installing (used by CI):  ... -File .\build.ps1 -NoInstall
 #>
+param([switch]$NoInstall)
 $ErrorActionPreference = 'Stop'
 
 $dist      = Join-Path $PSScriptRoot 'dist'
@@ -55,6 +57,11 @@ Write-Step "Building Maroom-Setup.exe $version"
 [assembly: System.Reflection.AssemblyFileVersion("$version")]
 "@ | ForEach-Object { [IO.File]::WriteAllText($versionCs, $_, [Text.UTF8Encoding]::new($true)) }
 Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$setup" "/resource:$app,Maroom.exe" (Join-Path $PSScriptRoot 'Setup.cs') $versionCs 2>&1)
+
+if ($NoInstall) {
+    Write-Host "Done: Maroom $version built (not installed). Setup: $setup" -ForegroundColor Green
+    exit 0
+}
 
 Write-Step 'Installing with the setup'
 # Not Start-Process -Wait: that would also wait for the Maroom process the setup starts

@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build Maroom.exe and Maroom-Setup.exe
+        shell: powershell
+        run: .\build.ps1 -NoInstall
+
+      - name: Check sources are UTF-8 with BOM
+        shell: powershell
+        run: |
+          # build.ps1 rewrites the sources with BOM; a diff means a file was committed without it
+          git diff --exit-code -- Maroom.cs Setup.cs
+          if ($LASTEXITCODE -ne 0) { Write-Error 'Maroom.cs/Setup.cs must be saved as UTF-8 with BOM (umlauts break otherwise)'; exit 1 }
+
+      - name: Show version
+        shell: powershell
+        run: (Get-Item dist\Maroom-Setup.exe).VersionInfo | Format-List FileVersion, ProductName
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Maroom-${{ github.sha }}
+          path: |
+            dist/Maroom.exe
+            dist/Maroom-Setup.exe
+          retention-days: 14

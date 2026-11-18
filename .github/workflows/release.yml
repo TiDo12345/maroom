@@ -1,0 +1,52 @@
+name: Release
+
+# Push a tag like v2.10 (it must match the AssemblyVersion in Maroom.cs) to build
+# Maroom-Setup.exe and publish it as a GitHub release with a SHA-256 checksum.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # create the release and upload the setup
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build
+        shell: powershell
+        run: .\build.ps1 -NoInstall
+
+      - name: Check tag matches the program version
+        shell: powershell
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $v = [version](Get-Item dist\Maroom.exe).VersionInfo.FileVersion
+          $expected = "v$($v.Major).$($v.Minor)" + $(if ($v.Build -gt 0) { ".$($v.Build)" } else { '' })
+          if ($env:TAG -ne $expected) { Write-Error "Tag $env:TAG does not match program version $v (expected $expected)"; exit 1 }
+          Write-Host "Version $v matches tag $env:TAG"
+
+      - name: Checksum
+        shell: powershell
+        run: |
+          $hash = (Get-FileHash dist\Maroom-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Maroom-Setup.exe" | Out-File dist\Maroom-Setup.exe.sha256 -Encoding ascii
+          Get-Content dist\Maroom-Setup.exe.sha256
+
+      - name: Create release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create $env:TAG dist\Maroom-Setup.exe dist\Maroom-Setup.exe.sha256 `
+            --repo $env:GITHUB_REPOSITORY --title "Maroom $($env:TAG.TrimStart('v'))" --generate-notes
+          if ($LASTEXITCODE -ne 0) { exit 1 }
