@@ -16,8 +16,10 @@
 
   Usage (from the repository folder):  powershell -ExecutionPolicy Bypass -File .\build.ps1
   Build only, without installing (used by CI):  ... -File .\build.ps1 -NoInstall
+  Rebuild only the setup around the existing dist\Maroom.exe (CI, after code signing Maroom.exe):
+                                                ... -File .\build.ps1 -NoInstall -SetupOnly
 #>
-param([switch]$NoInstall)
+param([switch]$NoInstall, [switch]$SetupOnly)
 $ErrorActionPreference = 'Stop'
 
 $dist      = Join-Path $PSScriptRoot 'dist'
@@ -44,8 +46,13 @@ foreach ($file in 'Maroom.cs', 'Setup.cs', 'Container.cs') {
     [IO.File]::WriteAllText($path, [IO.File]::ReadAllText($path), [Text.UTF8Encoding]::new($true))
 }
 
-Write-Step 'Compiling Maroom.exe'
-Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$app" (Join-Path $PSScriptRoot 'Maroom.cs') (Join-Path $PSScriptRoot 'Container.cs') 2>&1)
+if ($SetupOnly) {
+    if (-not (Test-Path $app)) { Write-Host "Aborted: -SetupOnly needs an existing $app" -ForegroundColor Red; exit 1 }
+    Write-Step 'Using the existing Maroom.exe'
+} else {
+    Write-Step 'Compiling Maroom.exe'
+    Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$app" (Join-Path $PSScriptRoot 'Maroom.cs') (Join-Path $PSScriptRoot 'Container.cs') 2>&1)
+}
 $version = (Get-Item $app).VersionInfo.FileVersion
 
 Write-Step "Building Maroom-Setup.exe $version"

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for Maroom (paste it into the project's default artifact
+  configuration on signpath.io). The release workflow submits two GitHub artifacts, one after the
+  other, each a ZIP with a single EXE at the root:
+    1. Maroom.exe        - signed first, because the setup embeds it as a resource
+    2. Maroom-Setup.exe  - rebuilt around the signed Maroom.exe, then signed
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file-set>
+      <include path="Maroom.exe" min-matches="0" max-matches="1" />
+      <include path="Maroom-Setup.exe" min-matches="0" max-matches="1" />
+      <for-each>
+        <authenticode-sign />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>
