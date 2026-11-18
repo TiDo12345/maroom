@@ -1,4 +1,4 @@
-﻿<#
+<#
   Builds Maroom, creates the setup and uses it to install or update Maroom.
   © 2026 Timo Dörsam
 
@@ -39,13 +39,13 @@ function Assert-Compiled($output) {
 New-Item -ItemType Directory -Force $dist | Out-Null
 
 Write-Step 'Saving sources as UTF-8 with BOM'
-foreach ($file in 'Maroom.cs', 'Setup.cs') {
+foreach ($file in 'Maroom.cs', 'Setup.cs', 'Container.cs') {
     $path = Join-Path $PSScriptRoot $file
     [IO.File]::WriteAllText($path, [IO.File]::ReadAllText($path), [Text.UTF8Encoding]::new($true))
 }
 
 Write-Step 'Compiling Maroom.exe'
-Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$app" (Join-Path $PSScriptRoot 'Maroom.cs') 2>&1)
+Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$app" (Join-Path $PSScriptRoot 'Maroom.cs') (Join-Path $PSScriptRoot 'Container.cs') 2>&1)
 $version = (Get-Item $app).VersionInfo.FileVersion
 
 Write-Step "Building Maroom-Setup.exe $version"
@@ -56,7 +56,7 @@ Write-Step "Building Maroom-Setup.exe $version"
 [assembly: System.Reflection.AssemblyVersion("$version")]
 [assembly: System.Reflection.AssemblyFileVersion("$version")]
 "@ | ForEach-Object { [IO.File]::WriteAllText($versionCs, $_, [Text.UTF8Encoding]::new($true)) }
-Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$setup" "/resource:$app,Maroom.exe" (Join-Path $PSScriptRoot 'Setup.cs') $versionCs 2>&1)
+Assert-Compiled (& $csc /nologo /target:winexe /platform:x64 /optimize+ "/win32icon:$icon" "/out:$setup" "/resource:$app,Maroom.exe" (Join-Path $PSScriptRoot 'Setup.cs') (Join-Path $PSScriptRoot 'Container.cs') $versionCs 2>&1)
 
 if ($NoInstall) {
     Write-Host "Done: Maroom $version built (not installed). Setup: $setup" -ForegroundColor Green
@@ -68,6 +68,11 @@ Write-Step 'Installing with the setup'
 $process = Start-Process $setup -ArgumentList '/quiet' -PassThru
 $process.WaitForExit()
 $log = Join-Path $env:LOCALAPPDATA 'Maroom\setup.log'
+if ($process.ExitCode -eq 3) {
+    # This shell runs inside a Store app's container (see Container.cs): the setup continues via Explorer.
+    Write-Host "Setup continues outside this sandboxed shell (started via Explorer). Result: setup.log in %LOCALAPPDATA%\Maroom (not visible from this shell)." -ForegroundColor Yellow
+    exit 0
+}
 if ($process.ExitCode -ne 0) {
     Write-Host "Setup reported an error (exit code $($process.ExitCode)):" -ForegroundColor Red
     if (Test-Path $log) { Get-Content $log -Tail 5 | Write-Host }

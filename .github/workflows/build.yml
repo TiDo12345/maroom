@@ -30,8 +30,8 @@ jobs:
         shell: powershell
         run: |
           # build.ps1 rewrites the sources with BOM; a diff means a file was committed without it
-          git diff --exit-code -- Maroom.cs Setup.cs
-          if ($LASTEXITCODE -ne 0) { Write-Error 'Maroom.cs/Setup.cs must be saved as UTF-8 with BOM (umlauts break otherwise)'; exit 1 }
+          git diff --exit-code -- Maroom.cs Setup.cs Container.cs
+          if ($LASTEXITCODE -ne 0) { Write-Error 'Maroom.cs/Setup.cs/Container.cs must be saved as UTF-8 with BOM (umlauts break otherwise)'; exit 1 }
 
       - name: Show version
         shell: powershell

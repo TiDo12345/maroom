@@ -21,7 +21,7 @@
 // - Unhandled errors are logged (log limited to 1 MB).
 //
 // Build (only .NET Framework 4, ships with Windows; save the file as UTF-8 with BOM):
-//   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /out:Maroom.exe Maroom.cs
+//   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /out:Maroom.exe Maroom.cs Container.cs
 // Note: this compiler only supports C# 5, so do not use newer syntax.
 
 using System;
@@ -47,6 +47,19 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        // Started from a redirected environment (e.g. a terminal inside a Store app)? Then this process would
+        // read and write that app's private copy of the data folder and disagree with the real state.txt
+        // about which desktop's files are in the desktop folder. Start again via Explorer instead.
+        // Nothing may be written before this check (not even the log).
+        string container = Container.RedirectedTo();
+        if (container != null)
+        {
+            string error = Container.StartViaExplorer(Container.RealPath(Application.ExecutablePath, container), Container.JoinArgs(args));
+            if (error != null)
+                MessageBox.Show("Maroom was started from a sandboxed app (" + Path.GetFileName(container) + ") and could not start itself outside of it: "
+                    + error + "\n\nPlease start Maroom from the Start menu.", "Maroom", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
         LegacyMigration.Run();   // before anything reads the data files
         if (!LegacyMigration.StateIsSafe())
         {
@@ -70,6 +83,9 @@ static class Program
             try { fresh = m.WaitOne(15000); } catch (AbandonedMutexException) { fresh = true; }
         }
         if (!fresh) return;
+        // Start and every regular end are logged, so a Maroom that is suddenly gone without a log entry
+        // was killed from outside (e.g. together with the process tree it was started from).
+        MaroomApp.Log("Start " + Application.ProductVersion + (args.Length > 0 ? " " + string.Join(" ", args) : ""));
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += delegate (object s, ThreadExceptionEventArgs e) { MaroomApp.Log("UI error: " + e.Exception); };
         // No Windows error dialog ("Maroom has stopped working") that keeps the process alive
@@ -86,6 +102,7 @@ static class Program
         if (Environment.GetEnvironmentVariable("MAROOM_CRASHTEST") == "1")
             new Thread(delegate () { Thread.Sleep(3000); throw new InvalidOperationException("Crash test"); }).Start();
         Application.Run(new MaroomApp());
+        MaroomApp.Log("End");
         GC.KeepAlive(m);
     }
 
@@ -244,7 +261,7 @@ class MaroomApp : ApplicationContext
         menu.Items.Add(LanguageMenu());
         menu.Items.Add(L10n.T("Info", "About"), null, delegate { ShowInfo(); });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(L10n.T("Beenden", "Exit"), null, delegate { Shutdown(); });
+        menu.Items.Add(L10n.T("Beenden", "Exit"), null, delegate { Log("Exit chosen in the menu"); Shutdown(); });
         tray.ContextMenuStrip = menu;
         tray.MouseClick += delegate (object s, MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) Next(1);
@@ -261,7 +278,7 @@ class MaroomApp : ApplicationContext
 
         mouse = new MouseHookThread(delegate (int direction) { RunOnUi(delegate { Next(direction); }); });
 
-        SystemEvents.SessionEnding += delegate { Halt(); };
+        SystemEvents.SessionEnding += delegate { Log("Session ending (sign-out or shutdown)"); Halt(); };
 
         // Clean stop for updates: halt, but do NOT swap back to desktop 1
         // (the new version takes over the state directly from the journal).
@@ -522,7 +539,13 @@ class MaroomApp : ApplicationContext
 
         if (abPhase <= 1)
         {
-            if (abPhase == 1 && Journal.Read().Phase == 0) SavePositions(old);
+            if (abPhase == 1 && Journal.Read().Phase == 0)
+            {
+                // Right after a swap Explorer may still be placing icons that appeared late on default slots;
+                // saving now (e.g. when switching back and forth quickly) would store those slots as the layout.
+                if (DateTime.UtcNow < settledAt) Log("Positions of desktop " + (old + 1) + " not saved: switched away right after the swap");
+                else SavePositions(old);
+            }
             Journal.Write(1, old, target);
             MoveOut(old, target, failures);
         }
@@ -540,18 +563,26 @@ class MaroomApp : ApplicationContext
             RunOnUi(delegate { tray.ShowBalloonTip(5000, "Maroom", text.Length > 250 ? text.Substring(0, 250) + "…" : text, ToolTipIcon.Warning); });
         }
 
-        Dictionary<string, Native.POINT> pos = LoadPositions(target);
-        if (pos.Count == 0) return;
-        WaitUntilStable();
-        // Icons whose image loads slowly (e.g. .exe files) appear late and first get a default slot.
-        // Re-apply until two passes in a row have nothing left to correct, at most about 5 s.
-        int calm = 0;
-        for (int i = 0; i < 20 && calm < 2; i++)
+        try
         {
-            if (DesktopIcons.Apply(pos) == 0) calm++; else calm = 0;
-            Thread.Sleep(250);
+            Dictionary<string, Native.POINT> pos = LoadPositions(target);
+            if (pos.Count == 0) return;
+            WaitUntilStable();
+            // Icons whose image loads slowly (e.g. .exe files) appear late and first get a default slot.
+            // Re-apply until two passes in a row have nothing left to correct, at most about 5 s.
+            int calm = 0;
+            for (int i = 0; i < 20 && calm < 2; i++)
+            {
+                if (DesktopIcons.Apply(pos) == 0) calm++; else calm = 0;
+                Thread.Sleep(250);
+            }
         }
+        finally { settledAt = DateTime.UtcNow.AddMilliseconds(SettleMs); }
     }
+
+    // Positions are only saved once a desktop has been shown for this long (see Swap)
+    const int SettleMs = 3000;
+    DateTime settledAt = DateTime.MinValue;
 
     // Phase 1: move everything from the desktop into its owner's storage
     static void MoveOut(int old, int target, List<string> failures)
@@ -1545,7 +1576,11 @@ class WindowMenu
             {
                 // Only clicks in a currently open window menu count. Another program could use the same
                 // command ID in its own menu; that must not move any window.
-                if (DateTime.UtcNow > menuValidUntil || idObject == OBJID_MENU) return;
+                if (DateTime.UtcNow > menuValidUntil) return;
+                // Chromium/Electron windows with their own title bar (e.g. the Claude or Teams app) show the
+                // window menu with TrackPopupMenu and report the click as OBJID_MENU. Accept that only from
+                // the process whose window menu is open, never from another program's menu bar.
+                if (idObject == OBJID_MENU && !SameProcess(hwnd, menuWindow != IntPtr.Zero ? menuWindow : ActiveWindow.Last())) return;
                 menuValidUntil = DateTime.MinValue;
                 uint id = (uint)idChild;
                 if (id != ID_ANHEFTEN && (id < ID_DESKTOP || id >= ID_DESKTOP + 0x10 * (uint)count)) return;
@@ -1558,6 +1593,15 @@ class WindowMenu
             }
         }
         catch (Exception ex) { MaroomApp.Log("Window menu: " + ex.Message); }
+    }
+
+    static bool SameProcess(IntPtr a, IntPtr b)
+    {
+        if (a == IntPtr.Zero || b == IntPtr.Zero) return false;
+        uint pa, pb;
+        Native.GetWindowThreadProcessId(a, out pa);
+        Native.GetWindowThreadProcessId(b, out pb);
+        return pa != 0 && pa == pb;
     }
 
     static int Position(IntPtr sys)

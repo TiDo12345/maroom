@@ -86,6 +86,7 @@ GitHub Actions baut jeden Push und Pull Request, lässt CodeQL laufen und veröf
 | --- | --- |
 | [Maroom.cs](Maroom.cs) | Die Tray-App |
 | [Setup.cs](Setup.cs) | Installer und Deinstaller (`/quiet`, `/uninstall`) |
+| [Container.cs](Container.cs) | Erkennt einen Start aus einer abgeschotteten App (Terminal in einer Store-App) und startet über den Explorer neu |
 | [build.ps1](build.ps1) | Bauen und installieren |
 | [.github/workflows/](.github/workflows/) | CI-Build, CodeQL, Release |
 | [tests/SmokeTest.ps1](tests/SmokeTest.ps1) | End-to-End-Test der installierten Version |

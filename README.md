@@ -80,6 +80,7 @@ GitHub Actions builds every push and pull request, runs CodeQL, and publishes a 
 | --- | --- |
 | [Maroom.cs](Maroom.cs) | The tray app |
 | [Setup.cs](Setup.cs) | Installer and uninstaller (`/quiet`, `/uninstall`) |
+| [Container.cs](Container.cs) | Detects a sandboxed start (terminal inside a Store app) and restarts via Explorer |
 | [build.ps1](build.ps1) | Build and install |
 | [.github/workflows/](.github/workflows/) | CI build, CodeQL, release |
 | [tests/SmokeTest.ps1](tests/SmokeTest.ps1) | End-to-end test of the installed version |

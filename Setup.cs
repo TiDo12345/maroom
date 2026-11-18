@@ -12,6 +12,9 @@
 //   Maroom-Setup.exe /uninstall      uninstall (with confirmation)
 //   Maroom-Setup.exe /uninstall /quiet
 //
+// Exit code 3: started from a redirected environment (a terminal inside a Store app, see Container.cs);
+// the setup has started itself again via Explorer and continues there.
+//
 // Uninstall: Maroom first puts desktop 1 back into the desktop folder. If that
 // fails, the uninstall stops so that no file is left behind in the wrong folder.
 // Files in "Desktop 2" are NEVER deleted.
@@ -41,6 +44,7 @@ static class Setup
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string Title = "Maroom Setup";
     static bool quiet;
+    static bool logToTemp;
 
     [STAThread]
     static int Main(string[] args)
@@ -48,6 +52,10 @@ static class Setup
         quiet = HasArg(args, "/quiet");
         L10n.Init(InstallDir);
         Application.EnableVisualStyles();
+        // Started from a redirected environment (e.g. a terminal inside a Store app)? Then installing here would
+        // land in that app's private copy of %LOCALAPPDATA%: run the setup again via Explorer instead.
+        string container = Container.RedirectedTo();
+        if (container != null) return RestartOutsideContainer(container, args);
         try
         {
             if (HasArg(args, "/uninstall")) return Uninstall(HasArg(args, "/temp"));
@@ -59,6 +67,23 @@ static class Setup
             Notify(L10n.T("Es ist ein Fehler aufgetreten:\n\n", "An error occurred:\n\n") + ex.Message, MessageBoxIcon.Error);
             return 1;
         }
+    }
+
+    // Exit code 3: the setup continues in a new process outside the container (its result is in setup.log).
+    static int RestartOutsideContainer(string container, string[] args)
+    {
+        logToTemp = true;   // %LOCALAPPDATA% writes would land in the container copy
+        string self = Container.RealPath(Assembly.GetExecutingAssembly().Location, container);
+        string error = Container.StartViaExplorer(self, Container.JoinArgs(args));
+        Log("Started inside the container of " + Path.GetFileName(container) + "; "
+            + (error == null ? "continued outside of it via Explorer" : "starting via Explorer failed: " + error));
+        if (error == null) return 3;
+        Notify(L10n.T("Das Setup wurde aus einer abgeschotteten App gestartet (", "The setup was started from a sandboxed app (")
+            + Path.GetFileName(container)
+            + L10n.T("). Dort installiert würde Maroom in einem privaten Ordner dieser App landen.\n\nBitte starte Maroom-Setup.exe per Doppelklick im Explorer.",
+                     "). Installed from there, Maroom would end up in a private folder of that app.\n\nPlease start Maroom-Setup.exe by double-clicking it in Explorer."),
+            MessageBoxIcon.Warning);
+        return 1;
     }
 
     static bool HasArg(string[] args, string a)
@@ -371,7 +396,7 @@ static class Setup
     {
         try
         {
-            string file = Directory.Exists(InstallDir) ? LogFile : Path.Combine(Path.GetTempPath(), "Maroom-setup.log");
+            string file = Directory.Exists(InstallDir) && !logToTemp ? LogFile : Path.Combine(Path.GetTempPath(), "Maroom-setup.log");
             File.AppendAllText(file, DateTime.Now.ToString("s") + " " + s + Environment.NewLine);
         }
         catch { }
