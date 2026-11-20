@@ -1114,7 +1114,7 @@ class MouseHookThread
                     int button = (int)((info.mouseData >> 16) & 0xFFFF); // 1 = back, 2 = forward
                     if (msg == Native.WM_XBUTTONDOWN)
                     {
-                        if (IsDesktopActive())
+                        if (IsDesktopActive() || IsDesktopAt(info.pt))
                         {
                             if (button == 1) x1Swallowed = true; else x2Swallowed = true;
                             onSwitch(button == 1 ? -1 : 1);
@@ -1136,9 +1136,23 @@ class MouseHookThread
     static bool IsDesktopActive()
     {
         IntPtr fg = Native.GetForegroundWindow();
-        if (fg == IntPtr.Zero) return true;
+        return fg == IntPtr.Zero || IsDesktopWindow(fg);
+    }
+
+    // The side button is pressed over a free spot of the desktop (or a desktop icon), even if another
+    // window is still active: then switch right away instead of needing a click on the desktop first.
+    static bool IsDesktopAt(Native.POINT pt)
+    {
+        IntPtr h = Native.WindowFromPoint(pt);
+        if (h == IntPtr.Zero) return false;
+        IntPtr root = Native.GetAncestor(h, 2 /* GA_ROOT */);
+        return IsDesktopWindow(root != IntPtr.Zero ? root : h);
+    }
+
+    static bool IsDesktopWindow(IntPtr h)
+    {
         StringBuilder sb = new StringBuilder(64);
-        Native.GetClassName(fg, sb, sb.Capacity);
+        Native.GetClassName(h, sb, sb.Capacity);
         string c = sb.ToString();
         return c == "Progman" || c == "WorkerW";
     }
@@ -2209,6 +2223,7 @@ static class Native
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT pt);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder sb, int max);
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
     [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr h);

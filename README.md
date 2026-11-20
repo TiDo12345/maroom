@@ -9,7 +9,7 @@
 Maroom gives every Windows 11 virtual desktop **its own desktop icons in their own positions**, something the built-in virtual desktops cannot do. It also adds what tools like Dexpot used to offer: switching with the mouse side buttons, hotkeys, and sending windows to another desktop from the window menu.
 
 - Separate desktop icons and icon layouts per virtual desktop
-- Switch with the mouse back/forward buttons (when the desktop is active), Alt+1 / Alt+2 or the tray icon
+- Switch with the mouse back/forward buttons (over the desktop or when it is active), Alt+1 / Alt+2 or the tray icon
 - Move the active window to another desktop (Alt+Shift+1/2) or show it on all desktops (Alt+Shift+0)
 - "Maroom ▸" submenu in every window menu (right-click the title bar), without injecting DLLs into other programs
 - Short overlay when switching, hotkeys paused in full screen (games, videos)
@@ -31,7 +31,7 @@ Maroom installs to `%LOCALAPPDATA%\Maroom` for the current user only. To uninsta
 
 | What | Mouse | Keyboard | Other |
 | --- | --- | --- | --- |
-| Switch desktop | Click an empty spot on the desktop, then press back/forward | **Alt+1 / Alt+2**, Win+Ctrl+Arrow | Left-click the tray icon |
+| Switch desktop | Point at an empty spot on the desktop and press back/forward | **Alt+1 / Alt+2**, Win+Ctrl+Arrow | Left-click the tray icon |
 | Move the active window | Right-click the title bar → **Maroom ▸ To desktop N** | **Alt+Shift+1 / Alt+Shift+2** | Tray menu |
 | Show window on all desktops (toggle) | Right-click the title bar → **Maroom ▸ Show on all desktops** | **Alt+Shift+0** | Tray menu |
 

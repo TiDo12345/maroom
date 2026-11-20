@@ -9,7 +9,7 @@
 Maroom gibt jedem virtuellen Desktop von Windows 11 **eigene Desktop-Symbole an eigenen Positionen**. Das können die eingebauten virtuellen Desktops nicht. Dazu kommt, was früher Werkzeuge wie Dexpot boten: Wechsel mit den Maus-Seitentasten, Tastenkürzel und das Verschieben von Fenstern über das Fenstermenü.
 
 - Eigene Desktop-Symbole und eigene Anordnung pro virtuellem Desktop
-- Wechsel mit den Seitentasten Zurück/Vor (wenn der Desktop aktiv ist), Alt+1 / Alt+2 oder über das Tray-Symbol
+- Wechsel mit den Seitentasten Zurück/Vor (über dem Desktop oder wenn er aktiv ist), Alt+1 / Alt+2 oder über das Tray-Symbol
 - Aktives Fenster auf einen anderen Desktop schicken (Alt+Shift+1/2) oder auf allen Desktops anzeigen (Alt+Shift+0)
 - Untermenü „Maroom ▸“ im Fenstermenü jedes Programms (Rechtsklick auf die Titelleiste), ohne DLLs in fremde Programme einzuschleusen
 - Kurze Einblendung beim Wechsel, Tastenkürzel pausieren im Vollbild (Spiele, Videos)
@@ -31,7 +31,7 @@ Maroom wird nur für den angemeldeten Benutzer nach `%LOCALAPPDATA%\Maroom` inst
 
 | Was | Maus | Tastatur | Sonst |
 | --- | --- | --- | --- |
-| Desktop wechseln | Auf eine freie Stelle des Desktops klicken, dann Zurück/Vor | **Alt+1 / Alt+2**, Win+Strg+Pfeil | Linksklick auf das Tray-Symbol |
+| Desktop wechseln | Mauszeiger auf eine freie Stelle des Desktops, dann Zurück/Vor | **Alt+1 / Alt+2**, Win+Strg+Pfeil | Linksklick auf das Tray-Symbol |
 | Aktives Fenster verschieben | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf Desktop N** | **Alt+Shift+1 / Alt+Shift+2** | Tray-Menü |
 | Fenster auf allen Desktops anzeigen (an/aus) | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf allen Desktops anzeigen** | **Alt+Shift+0** | Tray-Menü |
 
