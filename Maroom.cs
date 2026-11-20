@@ -39,8 +39,8 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyProduct("Maroom")]
 [assembly: System.Reflection.AssemblyDescription("Your own rooms on virtual desktops")]
 [assembly: System.Reflection.AssemblyCopyright("© 2026 Timo Dörsam")]
-[assembly: System.Reflection.AssemblyVersion("2.10.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("2.10.0.0")]
+[assembly: System.Reflection.AssemblyVersion("2.11.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("2.11.0.0")]
 
 static class Program
 {
@@ -870,7 +870,7 @@ class MaroomApp : ApplicationContext
         tray.Text = "Desktop " + (i + 1);
     }
 
-    const string Version = "2.10 (2026-11-18)";
+    const string Version = "2.11 (2026-11-20)";
 
     // ---------- Settings (settings.txt, lines "name=value") ----------
     static string ReadSetting(string name, string fallback)
