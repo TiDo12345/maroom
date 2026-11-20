@@ -162,7 +162,6 @@ class MaroomApp : ApplicationContext
     volatile int preempted = -1;   // target of a switch triggered by Maroom itself
     DateTime graceUntil = DateTime.MinValue;
     int lastVd = -1;
-    IntPtr menuWindow = IntPtr.Zero;
     volatile bool overlayEnabled = true;
     static readonly string SettingsFile = Path.Combine(DataDir, "settings.txt");
     public const string StopSignalName = "Maroom_Stop";
@@ -191,38 +190,6 @@ class MaroomApp : ApplicationContext
             int target = i;
             menu.Items.Add("Desktop " + (i + 1), null, delegate { SwitchTo(target); });
         }
-        // Window entries: built on opening, for the window that was active last
-        menu.Items.Add(new ToolStripSeparator());
-        ToolStripMenuItem windowHeader = new ToolStripMenuItem(L10n.T("Fenster", "Window"));
-        windowHeader.Enabled = false;
-        menu.Items.Add(windowHeader);
-        List<ToolStripMenuItem> windowTargets = new List<ToolStripMenuItem>();
-        for (int i = 0; i < DesktopCount; i++)
-        {
-            int target = i;
-            ToolStripMenuItem mi = new ToolStripMenuItem("→ Desktop " + (i + 1));
-            mi.ShortcutKeyDisplayString = "Alt+Shift+" + (i + 1);
-            mi.Click += delegate { MoveWindow(menuWindow, target); };
-            windowTargets.Add(mi);
-            menu.Items.Add(mi);
-        }
-        ToolStripMenuItem pinAction = new ToolStripMenuItem(L10n.T("Auf allen Desktops anzeigen", "Show on all desktops"));
-        pinAction.ShortcutKeyDisplayString = "Alt+Shift+0";
-        pinAction.Click += delegate { PinWindow(menuWindow); };
-        menu.Items.Add(pinAction);
-        menu.Opening += delegate {
-            menuWindow = ActiveWindow.Last();
-            bool ok = menuWindow != IntPtr.Zero && VdApi.Available;
-            windowHeader.Text = !VdApi.Available ? L10n.T("Fenster: Funktion nicht verfügbar (siehe Info)", "Window: feature not available (see About)")
-                             : menuWindow == IntPtr.Zero ? L10n.T("Fenster: keins aktiv", "Window: none active")
-                             : L10n.T("Fenster: ", "Window: ") + ActiveWindow.Title(menuWindow);
-            bool pinned = false;
-            if (ok) { try { pinned = VdApi.IsPinned(menuWindow); } catch { ok = false; } }
-            int vd = CurrentDesktop();
-            for (int i = 0; i < windowTargets.Count; i++) windowTargets[i].Enabled = ok && !pinned && i != vd;
-            pinAction.Enabled = ok;
-            pinAction.Checked = pinned;
-        };
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(L10n.T("Desktop-Ordner öffnen", "Open desktop folder"), null, delegate { Process.Start("explorer.exe", "\"" + DesktopDir + "\""); });
         menu.Items.Add(L10n.T("Positionen jetzt speichern", "Save icon positions now"), null, delegate { lock (swapLock) SavePositions(loadedSet, true); });
@@ -966,9 +933,9 @@ class MaroomApp : ApplicationContext
         sb.AppendLine(L10n.T("Gesperrte Dateien vorgemerkt: ", "Locked files pending: ") + (pending.Count == 0 ? L10n.T("keine", "none") : string.Join(", ", new List<string>(pending.Keys).ToArray())));
         sb.AppendLine();
         sb.AppendLine(L10n.T("Bedienung:", "Controls:"));
-        sb.AppendLine(L10n.T("  Seitentasten Zurück/Vor (nach Klick auf freie Desktop-Fläche)", "  Mouse back/forward buttons (after clicking an empty spot on the desktop)"));
+        sb.AppendLine(L10n.T("  Seitentasten Zurück/Vor (Mauszeiger über dem Desktop)", "  Mouse back/forward buttons (pointer over the desktop)"));
         sb.AppendLine(L10n.T("  Alt+1 / Alt+2, Linksklick auf dieses Symbol", "  Alt+1 / Alt+2, left-click this icon"));
-        sb.AppendLine(L10n.T("  Aktives Fenster verschieben: Alt+Shift+1 / Alt+Shift+2, Fenstermenü oder Tray-Menü", "  Move active window: Alt+Shift+1 / Alt+Shift+2, window menu or tray menu"));
+        sb.AppendLine(L10n.T("  Aktives Fenster verschieben: Alt+Shift+1 / Alt+Shift+2 oder Fenstermenü", "  Move active window: Alt+Shift+1 / Alt+Shift+2 or window menu"));
         sb.AppendLine(L10n.T("  Fenster auf allen Desktops anzeigen (an/aus): Alt+Shift+0", "  Show window on all desktops (on/off): Alt+Shift+0"));
         sb.AppendLine(L10n.T("  Fenster-Funktionen: ", "  Window features: ") + (VdApi.Available ? L10n.T("verfügbar", "available") : L10n.T("NICHT verfügbar – ", "NOT available – ") + VdApi.LastError));
         sb.AppendLine();
@@ -1840,7 +1807,7 @@ static class Fullscreen
     }
 }
 
-// Remembers the last active normal window (for the tray menu, which takes the focus itself).
+// Remembers the last active normal window (fallback for the window menu).
 static class ActiveWindow
 {
     static IntPtr lastWindow = IntPtr.Zero;

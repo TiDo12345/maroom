@@ -32,8 +32,8 @@ Maroom installs to `%LOCALAPPDATA%\Maroom` for the current user only. To uninsta
 | What | Mouse | Keyboard | Other |
 | --- | --- | --- | --- |
 | Switch desktop | Point at an empty spot on the desktop and press back/forward | **Alt+1 / Alt+2**, Win+Ctrl+Arrow | Left-click the tray icon |
-| Move the active window | Right-click the title bar → **Maroom ▸ To desktop N** | **Alt+Shift+1 / Alt+Shift+2** | Tray menu |
-| Show window on all desktops (toggle) | Right-click the title bar → **Maroom ▸ Show on all desktops** | **Alt+Shift+0** | Tray menu |
+| Move the active window | Right-click the title bar → **Maroom ▸ To desktop N** | **Alt+Shift+1 / Alt+Shift+2** | – |
+| Show window on all desktops (toggle) | Right-click the title bar → **Maroom ▸ Show on all desktops** | **Alt+Shift+0** | – |
 
 ![The Maroom submenu in the title bar menu of a window](docs/window-menu.en.svg)
 

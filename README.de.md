@@ -32,8 +32,8 @@ Maroom wird nur für den angemeldeten Benutzer nach `%LOCALAPPDATA%\Maroom` inst
 | Was | Maus | Tastatur | Sonst |
 | --- | --- | --- | --- |
 | Desktop wechseln | Mauszeiger auf eine freie Stelle des Desktops, dann Zurück/Vor | **Alt+1 / Alt+2**, Win+Strg+Pfeil | Linksklick auf das Tray-Symbol |
-| Aktives Fenster verschieben | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf Desktop N** | **Alt+Shift+1 / Alt+Shift+2** | Tray-Menü |
-| Fenster auf allen Desktops anzeigen (an/aus) | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf allen Desktops anzeigen** | **Alt+Shift+0** | Tray-Menü |
+| Aktives Fenster verschieben | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf Desktop N** | **Alt+Shift+1 / Alt+Shift+2** | – |
+| Fenster auf allen Desktops anzeigen (an/aus) | Rechtsklick auf die Titelleiste → **Maroom ▸ Auf allen Desktops anzeigen** | **Alt+Shift+0** | – |
 
 ![Das Maroom-Untermenü im Fenstermenü der Titelleiste](docs/window-menu.de.svg)
 
