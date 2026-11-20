@@ -364,10 +364,27 @@ class MaroomApp : ApplicationContext
         // If the switch fails, the worker loop reconciles with the real desktop afterwards.
         preempted = target;
         wakeSignal.Set();
+        // With the taskbar focused, it takes the arrow keys of Win+Ctrl+Arrow for its own button navigation
+        // and nothing switches. Then switch through the virtual desktop interface instead.
+        if (VdApi.Available && IsTaskbar(Native.GetForegroundWindow()))
+        {
+            try { VdApi.SwitchTo(target); return; }
+            catch (Exception ex) { Log("Direct switch failed, using keys: " + ex.Message); }
+        }
         KeyInput.ReleaseAlt();
         int delta = target - cur;
         ushort arrow = delta > 0 ? KeyInput.VK_RIGHT : KeyInput.VK_LEFT;
         for (int i = 0; i < Math.Abs(delta); i++) KeyInput.WinCtrl(arrow);
+    }
+
+    static bool IsTaskbar(IntPtr h)
+    {
+        if (h == IntPtr.Zero) return false;
+        IntPtr root = Native.GetAncestor(h, 2 /* GA_ROOT */);
+        StringBuilder sb = new StringBuilder(64);
+        Native.GetClassName(root != IntPtr.Zero ? root : h, sb, sb.Capacity);
+        string c = sb.ToString();
+        return c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd";
     }
 
     void Next(int direction)
@@ -1352,6 +1369,8 @@ static class VdApi
         bool CanViewMoveDesktops(IApplicationView view);
         IVirtualDesktop GetCurrentDesktop();
         void GetDesktops(out IObjectArray desktops);
+        [PreserveSig] int GetAdjacentDesktop(IVirtualDesktop from, int direction, out IVirtualDesktop desktop);
+        void SwitchDesktop(IVirtualDesktop desktop);
     }
 
     [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("4CE81583-1E4C-4632-A621-07A53543148F")]
@@ -1493,6 +1512,12 @@ static class VdApi
     }
 
     public static int Count() { return WithReconnect<int>(delegate { return mgr.GetCount(); }); }
+
+    // Switches without simulated keys (no slide animation).
+    public static void SwitchTo(int index)
+    {
+        WithReconnect<int>(delegate { mgr.SwitchDesktop(Desktop(index)); return 0; });
+    }
 
     public static void MoveToDesktop(IntPtr hwnd, int index)
     {
