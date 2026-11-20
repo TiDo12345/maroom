@@ -365,8 +365,10 @@ class MaroomApp : ApplicationContext
         preempted = target;
         wakeSignal.Set();
         // With the taskbar focused, it takes the arrow keys of Win+Ctrl+Arrow for its own button navigation
-        // and nothing switches. Then switch through the virtual desktop interface instead.
-        if (VdApi.Available && IsTaskbar(Native.GetForegroundWindow()))
+        // and nothing switches. So first move the focus to the desktop and switch with keys as usual (with the
+        // slide animation that hides the icon swap). Only if Windows refuses that, switch through the
+        // virtual desktop interface (instant, without animation).
+        if (IsTaskbar(Native.GetForegroundWindow()) && !FocusDesktop() && VdApi.Available)
         {
             try { VdApi.SwitchTo(target); return; }
             catch (Exception ex) { Log("Direct switch failed, using keys: " + ex.Message); }
@@ -375,6 +377,23 @@ class MaroomApp : ApplicationContext
         int delta = target - cur;
         ushort arrow = delta > 0 ? KeyInput.VK_RIGHT : KeyInput.VK_LEFT;
         for (int i = 0; i < Math.Abs(delta); i++) KeyInput.WinCtrl(arrow);
+    }
+
+    // Gives the focus to the desktop window. Windows only lets the process that sent the last input
+    // take the foreground, so send a harmless key event first.
+    static bool FocusDesktop()
+    {
+        IntPtr desktop = Native.FindWindow("Progman", null);
+        if (desktop == IntPtr.Zero) return false;
+        KeyInput.Nudge();
+        Native.SetForegroundWindow(desktop);
+        for (int i = 0; i < 10; i++)
+        {
+            if (!IsTaskbar(Native.GetForegroundWindow())) return true;
+            Thread.Sleep(10);
+        }
+        Log("Could not move the focus from the taskbar to the desktop");
+        return false;
     }
 
     static bool IsTaskbar(IntPtr h)
@@ -2136,6 +2155,12 @@ static class KeyInput
         Thread.Sleep(60);
     }
 
+    // An unassigned key: makes Maroom the source of the last input, which Windows requires for SetForegroundWindow.
+    public static void Nudge()
+    {
+        Send(new Native.INPUT[] { Key(VK_LEER, false, false), Key(VK_LEER, true, false) });
+    }
+
     // While Alt+1 is held down, Win+Ctrl+Alt+Arrow would arrive otherwise.
     public static void ReleaseAlt()
     {
@@ -2249,6 +2274,7 @@ static class Native
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT pt);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder sb, int max);
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
     [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr h);
