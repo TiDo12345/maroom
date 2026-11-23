@@ -27,5 +27,3 @@ Until the steps below are done, `release.yml` skips signing and publishes unsign
 3. Rebuilds `Maroom-Setup.exe` around the signed EXE (`build.ps1 -NoInstall -SetupOnly`).
 4. Submits `Maroom-Setup.exe` and waits for the second approval.
 5. Checks both signatures with `Get-AuthenticodeSignature`, then writes the checksum and publishes.
-
-After a signed release, update `InstallerSha256` in the winget manifest: the hash changes with the signature.
