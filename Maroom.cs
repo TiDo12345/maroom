@@ -1117,7 +1117,7 @@ class MouseHookThread
                     int button = (int)((info.mouseData >> 16) & 0xFFFF); // 1 = back, 2 = forward
                     if (msg == Native.WM_XBUTTONDOWN)
                     {
-                        if (IsDesktopActive() || IsDesktopAt(info.pt))
+                        if (ShouldSwitchAt(info.pt))
                         {
                             if (button == 1) x1Swallowed = true; else x2Swallowed = true;
                             onSwitch(button == 1 ? -1 : 1);
@@ -1136,27 +1136,71 @@ class MouseHookThread
         return Native.CallNextHookEx(hook, nCode, wParam, lParam);
     }
 
+    // The hook delivers the cursor in physical pixels. This process is not DPI aware, so WindowFromPoint
+    // would read them as scaled coordinates and, at 125 % or more, find a window further right and
+    // further down (often the desktop next to an Explorer window). Windows resets the thread DPI context
+    // to the process default for every hook callback, so switch to per-monitor aware here, for each call.
+    // Fallback: GetCursorPos, which is scaled the same way as WindowFromPoint in an unaware context.
+    static bool ShouldSwitchAt(Native.POINT physical)
+    {
+        IntPtr previous = IntPtr.Zero;
+        try { previous = Native.SetThreadDpiAwarenessContext((IntPtr)(-4) /* PER_MONITOR_AWARE_V2 */); }
+        catch (EntryPointNotFoundException) { }
+        try
+        {
+            Native.POINT pt = physical;
+            if (previous == IntPtr.Zero && !Native.GetCursorPos(out pt)) pt = physical;
+            return ShouldSwitch(pt);
+        }
+        finally { if (previous != IntPtr.Zero) Native.SetThreadDpiAwarenessContext(previous); }
+    }
+
+    // Switch when the side button is pressed over a free spot of the desktop (or a desktop icon), even if
+    // another window is still active: then no click on the desktop is needed first.
+    // Over a program window (Explorer, browser, ...) Back/Forward always belong to that program, even if
+    // the desktop still has the focus or Windows reports no foreground window during a focus change.
+    // Elsewhere (taskbar, no window) switch only while the desktop is active.
+    static bool ShouldSwitch(Native.POINT pt)
+    {
+        IntPtr root = RootAt(pt);
+        if (root != IntPtr.Zero)
+        {
+            if (IsDesktopWindow(root)) return true;
+            if (!IsTaskbarWindow(root)) return false;
+        }
+        return IsDesktopActive();
+    }
+
+    static IntPtr RootAt(Native.POINT pt)
+    {
+        IntPtr h = Native.WindowFromPoint(pt);
+        if (h == IntPtr.Zero) return IntPtr.Zero;
+        IntPtr root = Native.GetAncestor(h, 2 /* GA_ROOT */);
+        return root != IntPtr.Zero ? root : h;
+    }
+
     static bool IsDesktopActive()
     {
         IntPtr fg = Native.GetForegroundWindow();
         return fg == IntPtr.Zero || IsDesktopWindow(fg);
     }
 
-    // The side button is pressed over a free spot of the desktop (or a desktop icon), even if another
-    // window is still active: then switch right away instead of needing a click on the desktop first.
-    static bool IsDesktopAt(Native.POINT pt)
+    static string ClassOf(IntPtr h)
     {
-        IntPtr h = Native.WindowFromPoint(pt);
-        if (h == IntPtr.Zero) return false;
-        IntPtr root = Native.GetAncestor(h, 2 /* GA_ROOT */);
-        return IsDesktopWindow(root != IntPtr.Zero ? root : h);
+        StringBuilder sb = new StringBuilder(64);
+        Native.GetClassName(h, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    static bool IsTaskbarWindow(IntPtr h)
+    {
+        string c = ClassOf(h);
+        return c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd";
     }
 
     static bool IsDesktopWindow(IntPtr h)
     {
-        StringBuilder sb = new StringBuilder(64);
-        Native.GetClassName(h, sb, sb.Capacity);
-        string c = sb.ToString();
+        string c = ClassOf(h);
         return c == "Progman" || c == "WorkerW";
     }
 }
@@ -2241,6 +2285,7 @@ static class Native
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT pt);
+    [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT pt);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder sb, int max);
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
