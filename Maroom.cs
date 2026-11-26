@@ -1061,7 +1061,7 @@ class MouseHookThread
     uint threadId;
     IntPtr hook = IntPtr.Zero;
     Native.LowLevelMouseProc proc;
-    bool x1Swallowed, x2Swallowed, dpiAware;
+    bool x1Swallowed, x2Swallowed;
 
     public MouseHookThread(Action<int> onSwitch)
     {
@@ -1075,13 +1075,6 @@ class MouseHookThread
     void Run()
     {
         threadId = Native.GetCurrentThreadId();
-        // The hook delivers the cursor in physical pixels. This process is not DPI aware, so WindowFromPoint
-        // would read them as scaled coordinates and, at 125 % or more, find a window further right and
-        // further down (often the desktop next to an Explorer window). A per-monitor DPI aware thread
-        // context makes both use physical pixels. Fallback: ask GetCursorPos, which is scaled the same way.
-        try { dpiAware = Native.SetThreadDpiAwarenessContext((IntPtr)(-4) /* PER_MONITOR_AWARE_V2 */) != IntPtr.Zero; }
-        catch (EntryPointNotFoundException) { dpiAware = false; }
-        if (!dpiAware) MaroomApp.Log("Mouse hook: no DPI aware thread context, using GetCursorPos");
         proc = Hook;
         hook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, proc, Native.GetModuleHandle(null), 0);
         if (hook == IntPtr.Zero) { MaroomApp.Log("Mouse hook could not be installed: " + Marshal.GetLastWin32Error()); return; }
@@ -1124,9 +1117,7 @@ class MouseHookThread
                     int button = (int)((info.mouseData >> 16) & 0xFFFF); // 1 = back, 2 = forward
                     if (msg == Native.WM_XBUTTONDOWN)
                     {
-                        Native.POINT pt = info.pt;
-                        if (!dpiAware && !Native.GetCursorPos(out pt)) pt = info.pt;
-                        if (ShouldSwitch(pt))
+                        if (ShouldSwitchAt(info.pt))
                         {
                             if (button == 1) x1Swallowed = true; else x2Swallowed = true;
                             onSwitch(button == 1 ? -1 : 1);
@@ -1143,6 +1134,25 @@ class MouseHookThread
         }
         catch (Exception ex) { MaroomApp.Log("Mouse hook: " + ex.Message); }
         return Native.CallNextHookEx(hook, nCode, wParam, lParam);
+    }
+
+    // The hook delivers the cursor in physical pixels. This process is not DPI aware, so WindowFromPoint
+    // would read them as scaled coordinates and, at 125 % or more, find a window further right and
+    // further down (often the desktop next to an Explorer window). Windows resets the thread DPI context
+    // to the process default for every hook callback, so switch to per-monitor aware here, for each call.
+    // Fallback: GetCursorPos, which is scaled the same way as WindowFromPoint in an unaware context.
+    static bool ShouldSwitchAt(Native.POINT physical)
+    {
+        IntPtr previous = IntPtr.Zero;
+        try { previous = Native.SetThreadDpiAwarenessContext((IntPtr)(-4) /* PER_MONITOR_AWARE_V2 */); }
+        catch (EntryPointNotFoundException) { }
+        try
+        {
+            Native.POINT pt = physical;
+            if (previous == IntPtr.Zero && !Native.GetCursorPos(out pt)) pt = physical;
+            return ShouldSwitch(pt);
+        }
+        finally { if (previous != IntPtr.Zero) Native.SetThreadDpiAwarenessContext(previous); }
     }
 
     // Switch when the side button is pressed over a free spot of the desktop (or a desktop icon), even if
